@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from models.student import Students
 from database import engine, get_db
 from fastapi.middleware.cors import CORSMiddleware
-from auth import endcodejwt, JWTBearer, check_user
 from schemas.students import StudentSchema, StudentResponse
 from fastapi import FastAPI, Depends, HTTPException, Body, status
+from auth import encodejwt, check_user, get_current_user
 from schemas.users import UserRegisterSchema, UserResponse, UserLogin
 
 settings = get_settings()
@@ -31,9 +31,9 @@ def startup():
     Users.metadata.create_all(bind=engine)
 
 
-# @app.get("/users", tags=["user"], response_model=UserResponse)
-# async def get_users(db: Session = Depends(get_db)):
-#     return db.query(Users).all()
+@app.get("/user/me", tags=["user"])
+async def get_users(current_user: Users = Depends(get_current_user)):
+    return {"data": current_user}
 
 
 @app.post("/users", tags=["user"], response_model=UserResponse)
@@ -48,17 +48,17 @@ async def create_user(user: UserRegisterSchema, db: Session = Depends(get_db)):
 @app.post("/login", tags=["user"])  # login
 async def login_user(user: UserLogin = Body(...), db: Session = Depends(get_db)):
     if check_user(user.email, user.password, db):
-        return endcodejwt(user.email)
+        return encodejwt(user.email)
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
 
-@app.get("/students", tags=["student"], dependencies=[Depends(JWTBearer())])
+@app.get("/students", tags=["student"], dependencies=[Depends(get_current_user)])
 async def get_students(db: Session = Depends(get_db)):
     return db.query(Students).all()
 
 
-@app.post("/students", tags=["student"], dependencies=[Depends(JWTBearer())], response_model=StudentResponse)
+@app.post("/students", tags=["student"], dependencies=[Depends(get_current_user)], response_model=StudentResponse)
 async def create_student(student: StudentSchema, db: Session = Depends(get_db)):
     new_student = Students(**student.dict())
     db.add(new_student)

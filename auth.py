@@ -1,63 +1,52 @@
 import jwt
 import time
+from database import get_db
 from models.user import Users
 from config import get_settings
-from fastapi import Request, HTTPException
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
 
 settings = get_settings()
 
-JWT_SECRET = settings.jwt_secret
-JWT_ALGORITHM = settings.jwt_algorithm
+security = HTTPBearer()
 
 
 def token_response(token: str):
     return {"access_token": token}
 
 
-def endcodejwt(email: str) -> dict[str, str]:
+def encodejwt(email: str):
     payload = {
         "email": email,
-        "expires": time.time() + 600
+        "exp": int(time.time()) + 600
     }
-    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return token_response(token)
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decodejwt(token: str) -> dict:
+def decodejwt(token: str):
     try:
-        decode_token = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHM)
-        return decode_token if decode_token["expires"] >= time.time() else None
-    except:
-        return {}
+        return jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm]
+        )
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
 
 
-class JWTBearer(HTTPBearer):
-    def __init__(self, auto_error: bool = True):
-        super(JWTBearer, self).__init__(auto_error=auto_error)
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    payload = decodejwt(token)
 
-    async def __call__(self, request: Request):
-        credentials: HTTPAuthorizationCredentials = await super(JWTBearer, self).__call__(request)
-        if credentials:
-            if not credentials.scheme == "Bearer":
-                raise HTTPException(status_code=403, detail="Invalid authentication scheme.")
-            if not self.verify_jwt(credentials.credentials):
-                raise HTTPException(status_code=403, detail="Invalid token or expired token.")
-            return credentials.credentials
-        else:
-            raise HTTPException(status_code=403, detail="Invalid authorization code.")
-
-    def verify_jwt(self, jwtoken: str) -> bool:
-        isTokenValid: bool = False
-
-        try:
-            payload = decodejwt(jwtoken)
-        except:
-            payload = None
-        if payload:
-            isTokenValid = True
-        return isTokenValid
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user = db.query(Users).filter(Users.email == payload.get("email")).first().__dict__
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
 
 
 def check_user(email, password, db):
