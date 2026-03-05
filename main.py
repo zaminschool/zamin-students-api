@@ -59,8 +59,11 @@ async def get_students(db: Session = Depends(get_db)):
 
 
 @app.post("/students", tags=["student"], dependencies=[Depends(get_current_user)], response_model=StudentResponse)
-async def create_student(student: StudentSchema, db: Session = Depends(get_db)):
-    new_student = Students(**student.dict())
+async def create_student(student: StudentSchema, db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)):
+    user_id = current_user['id']
+    student_data = student.model_dump()
+    new_student = Students(**student_data)
+    new_student.user_id = user_id
     db.add(new_student)
     db.commit()
     db.refresh(new_student)

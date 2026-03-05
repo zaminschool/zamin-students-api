@@ -19,7 +19,7 @@ def token_response(token: str):
 def encodejwt(email: str):
     payload = {
         "email": email,
-        "exp": int(time.time()) + 600
+        "exp": int(time.time()) + 6000
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
