@@ -58,6 +58,7 @@ async def get_students(db: Session = Depends(get_db)):
     return db.query(Students).all()
 
 
+
 @app.post("/students", tags=["student"], dependencies=[Depends(get_current_user)], response_model=StudentResponse)
 async def create_student(student: StudentSchema, db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)):
     user_id = current_user['id']
@@ -69,6 +70,36 @@ async def create_student(student: StudentSchema, db: Session = Depends(get_db), 
     db.refresh(new_student)
     return new_student
 
+@app.put("/students/{student_id}", tags=["student"], response_model=StudentResponse, status_code=status.HTTP_200_OK)
+async def update_student(student_id: int, student: StudentSchema, db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)):
+    old_student = db.query(Students).filter(Students.id == student_id).first()
+
+    if old_student is None:
+        raise HTTPException(status_code=404, detail="Student topilmadi!")
+
+    if old_student.user_id == current_user["id"]:
+        for key, value in student.dict().items():
+            setattr(old_student, key, value)
+        db.commit()
+        db.refresh(old_student)
+        return old_student
+
+    raise HTTPException(status_code=404, detail="Bu sizning studentingiz emas!")
+
+
+
+@app.delete("/students/{student_id}", tags=["student"], response_model=StudentResponse, status_code=status.HTTP_200_OK)
+async def delete_student(student_id: int, db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)):
+    old_student = db.query(Students).filter(Students.id == student_id).first()
+
+    if old_student is None:
+        raise HTTPException(status_code=404, detail="Student topilmadi!")
+
+    if old_student.user_id == current_user["id"]:
+        db.delete(old_student)
+        db.commit()
+        return old_student
+    raise HTTPException(status_code=404, detail="Bu sizning studentingiz emas!")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
