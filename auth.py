@@ -12,16 +12,16 @@ settings = get_settings()
 security = HTTPBearer()
 
 
-def token_response(token: str):
-    return {"access_token": token}
-
-
 def encodejwt(email: str):
     payload = {
         "email": email,
         "exp": int(time.time()) + 6000
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    token = jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    return {
+        "access_token": token,
+        "type": "Bearer"
+    }
 
 
 def decodejwt(token: str):

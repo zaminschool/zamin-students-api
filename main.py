@@ -53,13 +53,15 @@ async def login_user(user: UserLogin = Body(...), db: Session = Depends(get_db))
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
 
-@app.get("/students", tags=["student"], dependencies=[Depends(get_current_user)])
-async def get_students(db: Session = Depends(get_db)):
-    return db.query(Students).all()
+@app.get("/students", tags=["student"])
+async def get_students(user: Users = Depends(get_current_user), db: Session = Depends(get_db)):
+    studnets = db.query(Students).where(Students.user_id == user["id"]).all()
+    return studnets
 
 
 @app.post("/students", tags=["student"], dependencies=[Depends(get_current_user)], response_model=StudentResponse)
-async def create_student(student: StudentSchema, db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)):
+async def create_student(student: StudentSchema, db: Session = Depends(get_db),
+                         current_user: Users = Depends(get_current_user)):
     user_id = current_user['id']
     student_data = student.model_dump()
     new_student = Students(**student_data)
