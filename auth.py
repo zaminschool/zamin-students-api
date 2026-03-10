@@ -43,7 +43,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    user = db.query(Users).filter(Users.email == payload.get("email")).first().__dict__
+    user = db.query(Users).filter(Users.email == payload.get("email")).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     return user
